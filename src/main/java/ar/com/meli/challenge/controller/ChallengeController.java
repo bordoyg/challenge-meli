@@ -28,10 +28,33 @@ import com.mongodb.DBObject;
 public class ChallengeController {
 
 	private static Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ChallengeController.class);
-	private static String COLLECTION_NAME="wather";
+	private static String COLLECTION_NAME="weather";
 	@Autowired
 	private MongoTemplate mongoTemplate;
-
+	
+	int iX=0;
+	int iY=1;
+	int r1=500;
+	int r2=2 * r1;
+	int r3=4 * r1;
+	
+	double[] sun= {0,0};
+	double[] p1= {r1,0};
+	double[] p2= {r2,0};
+	double[] p3= {r3,0};
+	
+	double[][] s1= {p1, p2};
+	double[][] s2= {p2, p3};
+	double[][] s3= {p3, p1};
+	
+	int w1=1;
+	int w2=-5;
+	int w3=3;
+	
+	double yearVulcano=Math.abs((360 * 1 / w2));
+	double tMax=10 *yearVulcano;
+	int t=0;
+	
 	@RequestMapping(value = "/clima", method = RequestMethod.GET)
 	public ResponseEntity<?> weatherByDay(@RequestParam("dia") Integer dia) {
 		try {
@@ -56,10 +79,11 @@ public class ChallengeController {
 			LOGGER.info("Init createWeather");
 			
 			List<BasicDBObject> weathers=createWeatherByDays();
+			for(DBObject weather : weathers){
+				mongoTemplate.save(weather, COLLECTION_NAME);	
+			}
 			
-			//mongoTemplate.save(weather, COLLECTION_NAME);
-			
-			return new ResponseEntity<List<BasicDBObject>>(weathers, HttpStatus.OK);
+			return new ResponseEntity<Object>(HttpStatus.CREATED);
 		}catch(Exception e) {
 			LOGGER.info("t = " + t);
 			LOGGER.info("p1 = " + p1);
@@ -72,30 +96,6 @@ public class ChallengeController {
 			return new ResponseEntity<Exception>(e, HttpStatus.INTERNAL_SERVER_ERROR);
 		}
 	}
-	
-	
-	int iX=0;
-	int iY=1;
-	int r1=500;
-	int r2=2 * r1;
-	int r3=4 * r1;
-	
-	double[] sun= {0,0};
-	double[] p1= {r1,0};
-	double[] p2= {r2,0};
-	double[] p3= {r3,0};
-	
-	double[][] s1= {p1, p2};
-	double[][] s2= {p2, p3};
-	double[][] s3= {p3, p1};
-	
-	int w1=1;
-	int w2=-5;
-	int w3=3;
-	
-	double yearVulcano=Math.abs((360 * 1 / w2));
-	double tMax=10 *yearVulcano;
-	int t=0;
 	
 	private List<BasicDBObject> createWeatherByDays() throws Exception{
 		List<BasicDBObject> weathers=new ArrayList<BasicDBObject>();
