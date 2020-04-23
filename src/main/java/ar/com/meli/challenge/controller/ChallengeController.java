@@ -29,6 +29,10 @@ public class ChallengeController {
 
 	private static Logger LOGGER = org.slf4j.LoggerFactory.getLogger(ChallengeController.class);
 	private static String COLLECTION_NAME="weather";
+	private static String CLIMA_LLUVIA="lluvia";
+	private static String CLIMA_SEQUIA="sequia";
+	private static String CLIMA_OPTIMO="optimo";
+	
 	@Autowired
 	private MongoTemplate mongoTemplate;
 	
@@ -59,13 +63,29 @@ public class ChallengeController {
 	public ResponseEntity<?> weatherByDay(@RequestParam("dia") Integer dia) {
 		try {
 			LOGGER.info("Init weatherByDay");
-			Query searchUserQuery = new Query(Criteria.where("day").is(dia));
+			Query searchUserQuery = new Query(Criteria.where("t").is(dia));
 			DBObject weatherByDay=mongoTemplate.findOne(searchUserQuery, DBObject.class, COLLECTION_NAME);
 			
 			if(weatherByDay==null) {
 				return new ResponseEntity<DBObject>(weatherByDay, HttpStatus.NOT_FOUND);
 			}
-			return new ResponseEntity<DBObject>(weatherByDay, HttpStatus.OK);
+			
+			BasicDBObject result=new BasicDBObject();
+			result.put("dia", weatherByDay.get("t"));
+			if(Boolean.getBoolean(weatherByDay.get("aligned-with-sun").toString())){
+				result.put("clima", CLIMA_SEQUIA);
+			}else{
+				if(Boolean.getBoolean(weatherByDay.get("aligned").toString())){
+					result.put("clima", CLIMA_OPTIMO);
+				}	
+			}
+			
+			if(Boolean.getBoolean(weatherByDay.get("sun-in-area").toString())){
+				result.put("clima", CLIMA_LLUVIA);
+				result.put("max", weatherByDay.get("max-perimeter"));
+			}
+			
+			return new ResponseEntity<DBObject>(result, HttpStatus.OK);
 		}catch(Exception e) {
 			LOGGER.info(e.getMessage(), e);
 			return new ResponseEntity<Exception>(e, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -77,6 +97,7 @@ public class ChallengeController {
 	public ResponseEntity<?> createWeather() {
 		try {
 			LOGGER.info("Init createWeather");
+			mongoTemplate.dropCollection(COLLECTION_NAME);
 			
 			List<BasicDBObject> weathers=createWeatherByDays();
 			for(DBObject weather : weathers){
@@ -117,12 +138,11 @@ public class ChallengeController {
 			weather.put("p1",p1);
 			weather.put("p2",p2);
 			weather.put("p3",p3);
-			weather.put("isAligned",isAligned());
-			weather.put("isAlignedWithSun",isAlignedWithSun());
-			weather.put("isSunIntoArea",isSunIntoArea());
-			weather.put("isMaxPerimeter",isMaxPerimeter());
-			//double perimeter=perimeter();
-			
+			weather.put("aligned",isAligned());
+			weather.put("aligned-with-sun",isAlignedWithSun());
+			weather.put("sun-in-area",isSunIntoArea());
+			weather.put("max-perimeter",isMaxPerimeter());
+
 			weathers.add(weather);
 		}
 		
