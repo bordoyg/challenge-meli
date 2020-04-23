@@ -72,15 +72,15 @@ public class ChallengeController {
 			
 			BasicDBObject result=new BasicDBObject();
 			result.put("dia", weatherByDay.get("t"));
-			if(Boolean.getBoolean(weatherByDay.get("aligned-with-sun").toString())){
+			if(Boolean.parseBoolean(weatherByDay.get("aligned-with-sun").toString())){
 				result.put("clima", CLIMA_SEQUIA);
 			}else{
-				if(Boolean.getBoolean(weatherByDay.get("aligned").toString())){
+				if(Boolean.parseBoolean(weatherByDay.get("aligned").toString())){
 					result.put("clima", CLIMA_OPTIMO);
 				}	
 			}
 			
-			if(Boolean.getBoolean(weatherByDay.get("sun-in-area").toString())){
+			if(Boolean.parseBoolean(weatherByDay.get("sun-in-area").toString())){
 				result.put("clima", CLIMA_LLUVIA);
 				result.put("max", weatherByDay.get("max-perimeter"));
 			}
