@@ -1,11 +1,7 @@
 package ar.com.meli.challenge.controller;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +18,11 @@ import org.springframework.web.bind.annotation.RestController;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 
-
+/**
+ * API Rest to predict the weather 
+ * 
+ * @author gbordoy
+ * */
 @RestController
 @RequestMapping("/api")
 public class ChallengeController {
@@ -36,29 +36,58 @@ public class ChallengeController {
 	@Autowired
 	private MongoTemplate mongoTemplate;
 	
+	/**
+	 * index x,y coordenates
+	 */
 	int iX=0;
 	int iY=1;
+	/**
+	 * radio
+	 */
 	int r1=500;
 	int r2=2 * r1;
 	int r3=4 * r1;
 	
+	/**
+	 * point of plant and sun
+	 */
 	double[] sun= {0,0};
 	double[] p1= {r1,0};
 	double[] p2= {r2,0};
 	double[] p3= {r3,0};
 	
+	/**
+	 * side of triangle (distance between planets)
+	 */
 	double[][] s1= {p1, p2};
 	double[][] s2= {p2, p3};
 	double[][] s3= {p3, p1};
 	
+	/**
+	 * angular velocity
+	 */
 	int w1=1;
 	int w2=-5;
 	int w3=3;
 	
+	/**
+	 * number of days for year in vulcano
+	 */
 	double yearVulcano=Math.abs((360 * 1 / w2));
+	/**
+	 * number of days for ten years in vulcano
+	 */
 	double tMax=10 *yearVulcano;
+	/**
+	 * initial day
+	 */
 	int t=0;
 	
+	/**
+	 * 
+	 * @param dia, number of the day in the future from today
+	 * @return weather by day
+	 */
 	@RequestMapping(value = "/clima", method = RequestMethod.GET)
 	public ResponseEntity<?> weatherByDay(@RequestParam("dia") Integer dia) {
 		try {
@@ -93,13 +122,18 @@ public class ChallengeController {
 		
 	}
 	
+	/**
+	 * Create the database with the weather forecast
+	 * @return Http status 201 if it was created
+	 */
 	@RequestMapping(value = "/create", method = RequestMethod.POST)
 	public ResponseEntity<?> createWeather() {
 		try {
 			LOGGER.info("Init createWeather");
 			mongoTemplate.dropCollection(COLLECTION_NAME);
-			
+			//get weathers
 			List<BasicDBObject> weathers=createWeatherByDays();
+			//save
 			for(DBObject weather : weathers){
 				mongoTemplate.save(weather, COLLECTION_NAME);	
 			}
@@ -122,9 +156,13 @@ public class ChallengeController {
 		List<BasicDBObject> weathers=new ArrayList<BasicDBObject>();
 		
 		for(t=0; t<tMax; t++) {
+			
+			//get planet position by day
 			p1=positionByDay(p1, r1, w1, t);
 			p2=positionByDay(p2, r2, w2, t);
 			p3=positionByDay(p3, r3, w3, t);
+			
+			//set side of triangle by day
 			s1[0]= p1;
 			s1[1]= p2;
 			s2[0]= p2;
@@ -142,17 +180,19 @@ public class ChallengeController {
 			weather.put("aligned-with-sun",isAlignedWithSun());
 			weather.put("sun-in-area",isSunIntoArea());
 			weather.put("max-perimeter",isMaxPerimeter());
-
+			
+			//add weather to list
 			weathers.add(weather);
 		}
 		
 		return weathers;
 	}
-	
+	/*
+	 * Check if the planets are aligned
+	 * planets aligned if m1=m2=m3 with m(i) like incline side(i)
+	 * m(i)=(y(2)-y(1))/(x(2)-x(1))
+	 */
 	private boolean isAligned() {
-		//planets aligned if m1=m2=m3 with m(i) like incline side(i)
-		//m(i)=(y(2)-y(1))/(x(2)-x(1))
-		
 		double m1=incline(s1[0], s1[1]);
 		double m2=incline(s2[0], s2[1]);
 		double m3=incline(s3[0], s3[1]);
@@ -160,18 +200,23 @@ public class ChallengeController {
 		return m1==m2 && m2==m3;
 		
 	}
+	/*
+	 * Check if the planets are aligned with the sun
+	 * planets aligned with sun if position vector of planets is aligned
+	 * m(i)=(y(2)-y(1))/(x(2)-x(1))
+	 */
 	private boolean isAlignedWithSun() {
-		//planets aligned with sun if position vector of planets is aligned
-		//m(i)=(y(2)-y(1))/(x(2)-x(1))
-		
 		double m1=incline(sun, p1);
 		double m2=incline(sun, p2);
 		double m3=incline(sun, p3);
 		
 		return m1==m2 && m2==m3;
 	}
+	
+	/*
+	 * Check the sun is in the area of the triangle if two sides intersect the x axis with opposite sign
+	 */
 	private boolean isSunIntoArea() {
-		//the sun is in the area of the triangle if two sides intersect the x axis with opposite sign
 		
 		Double x1=intersectionX(s1);
 		Double x2=intersectionX(s2);
@@ -192,16 +237,18 @@ public class ChallengeController {
 		}
 		return false;
 	}
+	/*
+	 * is the max perimeter when the distance between the planets is maximum
+	 * that is, 120 ° angles are formed between them
+	 * P1 . P2 = |P1||P2|cos @
+	 * P1 . P2 = x(1)x(2) + y(1)y(2)
+	 * 
+	 * cos 120=P1 . P2 / |P1||P2|
+	 * cos 120=(x(1)x(2) + y(1)y(2)) / |P1||P2|
+	 * 
+	 * Is max perimeter if cos 120=P1 . P2 / |P1||P2| =P2 . P3 / |P2||P3|
+	 */
 	private boolean isMaxPerimeter() {
-		//is the max perimeter when the distance between the planets is maximum, 
-		//that is, 120 ° angles are formed between them
-		//P1 . P2 = |P1||P2|cos @
-		//P1 . P2 = x(1)x(2) + y(1)y(2)
-		
-		//cos 120=P1 . P2 / |P1||P2|
-		//cos 120=(x(1)x(2) + y(1)y(2)) / |P1||P2|
-		
-		//Is max perimeter if cos 120=P1 . P2 / |P1||P2| =P2 . P3 / |P2||P3|
 		double[][]P1= {p1, sun};
 		double[][]P2= {p2, sun};
 		double[][]P3= {p3, sun};
@@ -224,35 +271,45 @@ public class ChallengeController {
 		positionPlanet[iY]=(radio * Math.sin(Math.toRadians(velocity * day)));
 		return positionPlanet;
 	}
+	/*
+	 * Incline of side
+	 * m=(y(2)-y(1))/(x(2)-x(1))
+	 */
 	private double incline(double[] origin, double[] target) {
-		//m=(y(2)-y(1))/(x(2)-x(1))
 		double m=0;
 		m=(target[iY] - origin[iY])/(target[iX] - origin[iX]);
 		return m;
 	}
+	/*
+	 * Get side by origin and target planet
+	 */
 	private double[] side(double[] origin, double[] target) {
 		double[] side= {target[iX] - origin[iX], target[iY] - origin[iY]};
 		return side;
 	}
+	/*
+	 *lenght of side 
+	 * Module:
+	 * |V|=Math.sqrt(v(i) * v(i) + v(j) * v(j))
+	 */
 	private double module(double[][] side) {
-		//Module:
-		//|V|=Math.sqrt(v(i) * v(i) + v(j) * v(j))
 		double[] vSide=side(side[0], side[1]);
 		double module=Math.sqrt(vSide[iX] * vSide[iX] + vSide[iY] * vSide[iY]);
 		return module;
 	}
-	private double perimeter() {
-		double perimeter=module(s1) + module(s2) + module(s3);
-		return perimeter;
-	}
-	private Double intersectionX(double[][] side) {
-		//side:
-		//        (y-y(1)) = m(x-x(1))
-		//      (y-y(1))/m = (x-x(1))
-		// (y-y(1))/m + x(1) = x
+	
+	/*
+	 * Intetrsection of triangle with axis X
+	 *Side:
+	 *	        (y-y(1)) = m(x-x(1))
+	 *	      (y-y(1))/m = (x-x(1))
+	 *	 (y-y(1))/m + x(1) = x
 		
-		//intersection with x axis => y=0
-		// -y(1)/m + x(1) = x with x into [x(1), x(2)]
+	 *intersection with x axis => y=0
+	 * -y(1)/m + x(1) = x with x into [x(1), x(2)]
+		
+	 */
+	private Double intersectionX(double[][] side) {
 		
 		Double intersection=null;
 		double m=incline(side[0], side[1]);
@@ -269,6 +326,7 @@ public class ChallengeController {
 		}
 		return null;
 	}
+
 	private boolean between(double x, double first, double last) {
 		if(first >= last) {
 			return first >= x && last <= x;
